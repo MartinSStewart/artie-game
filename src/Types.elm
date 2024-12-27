@@ -9,12 +9,19 @@ import Url exposing (Url)
 
 type alias FrontendModel =
     { key : Key
-    , playerX : Int
-    , playerXTarget : Int
-    , mouseX : Int
-    , mouseY : Int
+    , playerX : Float
+    , playerXTarget : Float
+    , mouseX : Float
+    , mouseY : Float
     , time : Time.Posix
+    , inventory : List Item
     }
+
+
+type Item
+    = Key
+    | Letter
+    | Rock
 
 
 type alias BackendModel =
@@ -24,8 +31,8 @@ type alias BackendModel =
 type FrontendMsg
     = UrlClicked UrlRequest
     | UrlChanged Url
-    | MouseDown { mouseX : Int, mouseY : Int }
-    | MouseMove { mouseX : Int, mouseY : Int }
+    | MouseDown { mouseX : Float, mouseY : Float }
+    | MouseMove { mouseX : Float, mouseY : Float }
     | AnimationFrame Time.Posix
 
 
