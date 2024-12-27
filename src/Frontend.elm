@@ -251,5 +251,10 @@ view model =
             , drawInventory model.inventory
             , drawGroup 0 0 (List.map drawClickableRegions clickableRegions)
             ]
+        , Html.text
+            (String.fromInt (round model.mouseX)
+                ++ ", "
+                ++ String.fromInt (round model.mouseY)
+            )
         ]
     }
