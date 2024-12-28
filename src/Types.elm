@@ -17,6 +17,7 @@ type alias FrontendModel =
     , inventory : List Item
     , narrationText : String
     , hasOpenedChest : Bool
+    , selectedInventoryItem : Maybe Item
     }
 
 
@@ -37,10 +38,7 @@ type FrontendMsg
     | MouseMove { mouseX : Float, mouseY : Float }
     | AnimationFrame Time.Posix
     | ClickedSomething FrontendModel
-
-
-type ClickableRegion
-    = Chest
+    | ClickedInventoryItem Item
 
 
 type ToBackend

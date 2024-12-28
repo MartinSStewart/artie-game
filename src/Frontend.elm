@@ -54,6 +54,7 @@ init url key =
       , inventory = [ Key, Letter ]
       , narrationText = ""
       , hasOpenedChest = False
+      , selectedInventoryItem = Nothing
       }
     , Cmd.none
     )
@@ -118,6 +119,11 @@ update msg model =
         ClickedSomething newModel ->
             ( newModel, Cmd.none )
 
+        ClickedInventoryItem item ->
+            ( { model | selectedInventoryItem = Just item }
+            , Cmd.none
+            )
+
 
 type alias ClickableRegionData =
     { x : Float
@@ -126,40 +132,11 @@ type alias ClickableRegionData =
     }
 
 
-
---clickableRegions : FrontendModel -> ClickableRegion -> ClickableRegionData
---clickableRegions model clickableRegion =
---    case clickableRegion of
---        Chest ->
---            { x = 200
---            , y = 380
---            , image = "/chest.png"
---            }
-
-
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 updateFromBackend msg model =
     case msg of
         NoOpToFrontend ->
             ( model, Cmd.none )
-
-
-
---drawClickableRegions : FrontendModel -> ClickableRegion -> Html FrontendMsg
---drawClickableRegions model clickableRegion =
---    let
---        data =
---            clickableRegions model clickableRegion
---    in
---    Html.img
---        [ Html.Attributes.src data.image
---        , Html.Attributes.style "top" (String.fromFloat data.y ++ "px")
---        , Html.Attributes.style "left" (String.fromFloat data.x ++ "px")
---        , Html.Attributes.style "position" "absolute"
---        , Html.Attributes.style "cursor" "pointer"
---        , Html.Events.onClick (ClickedItem clickableRegion)
---        ]
---        []
 
 
 drawImage : String -> Float -> Float -> Html msg
