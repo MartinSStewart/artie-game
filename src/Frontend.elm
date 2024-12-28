@@ -5,8 +5,10 @@ import Browser.Events
 import Browser.Navigation as Nav
 import Html exposing (Html)
 import Html.Attributes
+import Html.Events
 import Json.Decode
 import Lamdera
+import List.Extra
 import Time
 import Types exposing (..)
 import Url
@@ -24,6 +26,7 @@ app =
         }
 
 
+subscriptions : FrontendModel -> Sub FrontendMsg
 subscriptions model =
     Sub.batch
         [ Browser.Events.onMouseDown (decodeMouseEvent MouseDown)
@@ -49,6 +52,8 @@ init url key =
       , mouseY = 0
       , time = Time.millisToPosix 0
       , inventory = [ Key, Letter ]
+      , narrationText = ""
+      , hasOpenedChest = False
       }
     , Cmd.none
     )
@@ -110,21 +115,26 @@ update msg model =
             , Cmd.none
             )
 
+        ClickedSomething newModel ->
+            ( newModel, Cmd.none )
 
-type alias ClickableRegion =
+
+type alias ClickableRegionData =
     { x : Float
     , y : Float
     , image : String
     }
 
 
-clickableRegions : List ClickableRegion
-clickableRegions =
-    [ { x = 200
-      , y = 380
-      , image = "/chest.png"
-      }
-    ]
+
+--clickableRegions : FrontendModel -> ClickableRegion -> ClickableRegionData
+--clickableRegions model clickableRegion =
+--    case clickableRegion of
+--        Chest ->
+--            { x = 200
+--            , y = 380
+--            , image = "/chest.png"
+--            }
 
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
@@ -134,16 +144,22 @@ updateFromBackend msg model =
             ( model, Cmd.none )
 
 
-drawClickableRegions : ClickableRegion -> Html msg
-drawClickableRegions item =
-    Html.img
-        [ Html.Attributes.src item.image
-        , Html.Attributes.style "top" (String.fromFloat item.y ++ "px")
-        , Html.Attributes.style "left" (String.fromFloat item.x ++ "px")
-        , Html.Attributes.style "position" "absolute"
-        , Html.Attributes.style "cursor" "pointer"
-        ]
-        []
+
+--drawClickableRegions : FrontendModel -> ClickableRegion -> Html FrontendMsg
+--drawClickableRegions model clickableRegion =
+--    let
+--        data =
+--            clickableRegions model clickableRegion
+--    in
+--    Html.img
+--        [ Html.Attributes.src data.image
+--        , Html.Attributes.style "top" (String.fromFloat data.y ++ "px")
+--        , Html.Attributes.style "left" (String.fromFloat data.x ++ "px")
+--        , Html.Attributes.style "position" "absolute"
+--        , Html.Attributes.style "cursor" "pointer"
+--        , Html.Events.onClick (ClickedItem clickableRegion)
+--        ]
+--        []
 
 
 drawImage : String -> Float -> Float -> Html msg
@@ -153,6 +169,22 @@ drawImage imageName x y =
         , Html.Attributes.style "top" (String.fromFloat y ++ "px")
         , Html.Attributes.style "left" (String.fromFloat x ++ "px")
         , Html.Attributes.style "position" "absolute"
+        ]
+        []
+
+
+drawClickableImage : String -> Float -> Float -> FrontendModel -> Html FrontendMsg
+drawClickableImage imageName x y newModel =
+    Html.img
+        [ Html.Attributes.src imageName
+        , Html.Attributes.style "top" (String.fromFloat y ++ "px")
+        , Html.Attributes.style "left" (String.fromFloat x ++ "px")
+        , Html.Attributes.style "position" "absolute"
+        , Html.Events.onClick (ClickedSomething newModel)
+        , Html.Attributes.style "border" "0"
+        , Html.Attributes.style "margin" "0"
+        , Html.Attributes.style "padding" "0"
+        , Html.Attributes.style "cursor" "pointer"
         ]
         []
 
@@ -203,7 +235,7 @@ drawInventory inventory =
                         , drawImage (itemImage item) 0 0
                         ]
                 )
-                inventory
+                (List.reverse inventory)
             )
         ]
 
@@ -248,8 +280,22 @@ view model =
             ]
             [ drawRectangle "gray" 0 420 2000 300
             , drawImage "/mario.png" (model.playerX - 30) 300
+            , drawClickableImage
+                "/chest.png"
+                300
+                380
+                (if model.hasOpenedChest then
+                    { model | narrationText = "The chest has already been plundered" }
+
+                 else
+                    { model
+                        | inventory = Rock :: model.inventory
+                        , narrationText = "You opened the chest and found a rock!"
+                        , hasOpenedChest = True
+                    }
+                )
             , drawInventory model.inventory
-            , drawGroup 0 0 (List.map drawClickableRegions clickableRegions)
+            , drawText "white" 20 20 500 model.narrationText
             ]
         , Html.text
             (String.fromInt (round model.mouseX)

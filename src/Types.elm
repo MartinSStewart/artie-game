@@ -15,6 +15,8 @@ type alias FrontendModel =
     , mouseY : Float
     , time : Time.Posix
     , inventory : List Item
+    , narrationText : String
+    , hasOpenedChest : Bool
     }
 
 
@@ -34,6 +36,11 @@ type FrontendMsg
     | MouseDown { mouseX : Float, mouseY : Float }
     | MouseMove { mouseX : Float, mouseY : Float }
     | AnimationFrame Time.Posix
+    | ClickedSomething FrontendModel
+
+
+type ClickableRegion
+    = Chest
 
 
 type ToBackend
