@@ -3,6 +3,7 @@ module Frontend exposing (..)
 import Array exposing (Array)
 import Array.Extra
 import Browser exposing (UrlRequest(..))
+import Browser.Dom
 import Browser.Events
 import Browser.Navigation as Nav
 import Html exposing (Html)
@@ -10,6 +11,7 @@ import Html.Attributes
 import Html.Events
 import Json.Decode
 import Lamdera
+import Task
 import Time
 import Types exposing (..)
 import Url
@@ -57,8 +59,11 @@ init url key =
       , hasOpenedChest = False
       , hasPickedUpKey = False
       , selectedInventoryItem = Nothing
+      , hoverText = Nothing
+      , windowWidth = 1920
+      , windowHeight = 1080
       }
-    , Cmd.none
+    , Task.perform (\{ viewport } -> GotWindowSize viewport.width viewport.height) Browser.Dom.getViewport
     )
 
 
@@ -145,6 +150,24 @@ update msg model =
             , Cmd.none
             )
 
+        MouseEnteredClickableImage hoverText ->
+            ( { model | hoverText = Just hoverText }, Cmd.none )
+
+        MouseExitedClickableImage hoverText ->
+            ( { model
+                | hoverText =
+                    if Just hoverText == model.hoverText then
+                        Nothing
+
+                    else
+                        model.hoverText
+              }
+            , Cmd.none
+            )
+
+        GotWindowSize width height ->
+            ( { model | windowWidth = width, windowHeight = height }, Cmd.none )
+
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
 updateFromBackend msg model =
@@ -164,14 +187,16 @@ drawImage imageName x y =
         []
 
 
-drawClickableImage : String -> Float -> Float -> FrontendModel -> Html FrontendMsg
-drawClickableImage imageName x y newModel =
+drawClickableImage : String -> String -> Float -> Float -> FrontendModel -> Html FrontendMsg
+drawClickableImage imageName hoverText x y newModel =
     Html.img
         [ Html.Attributes.src imageName
         , Html.Attributes.style "top" (String.fromFloat y ++ "px")
         , Html.Attributes.style "left" (String.fromFloat x ++ "px")
         , Html.Attributes.style "position" "absolute"
         , Html.Events.onClick (ClickedSomething newModel)
+        , Html.Events.onMouseEnter (MouseEnteredClickableImage hoverText)
+        , Html.Events.onMouseLeave (MouseExitedClickableImage hoverText)
         , Html.Attributes.style "border" "0"
         , Html.Attributes.style "margin" "0"
         , Html.Attributes.style "padding" "0"
@@ -271,6 +296,34 @@ drawNothing =
     drawGroup 0 0 []
 
 
+hoverTextView : FrontendModel -> Html msg
+hoverTextView model =
+    case model.hoverText of
+        Just hoverText ->
+            drawGroup
+                (model.mouseX + 8)
+                (model.mouseY + 24)
+                [ Html.div
+                    [ Html.Attributes.style "width" "fit-content"
+                    , Html.Attributes.style "height" "fit-content"
+                    , if model.mouseX > model.windowWidth / 2 then
+                        Html.Attributes.style "transform" "translate(-100%)"
+
+                      else
+                        Html.Attributes.style "" ""
+                    , Html.Attributes.style "background-color" "white"
+                    , Html.Attributes.style "padding" "4px 8px"
+                    , Html.Attributes.style "border" "black solid 1px"
+                    , Html.Attributes.style "font-family" "sans-serif"
+                    , Html.Attributes.style "white-space" "pre"
+                    ]
+                    [ Html.text hoverText ]
+                ]
+
+        Nothing ->
+            drawNothing
+
+
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
     { title = ""
@@ -287,6 +340,7 @@ view model =
             [ drawGroup 0 0 (roomView model)
             , drawInventory model
             , drawText "white" 20 20 500 model.narrationText
+            , hoverTextView model
             ]
         , Html.text
             (String.fromInt (round model.mouseX)
@@ -295,6 +349,11 @@ view model =
             )
         ]
     }
+
+
+hasItem : Item -> FrontendModel -> Bool
+hasItem item model =
+    Array.Extra.member item model.inventory
 
 
 
@@ -354,12 +413,13 @@ roomView model =
     , drawImage "/mario.png" (model.playerX - 30) 300
     , drawClickableImage
         "/chest.png"
+        "Open chest"
         300
         380
         (if model.hasOpenedChest then
             { model | narrationText = "The chest has already been plundered." }
 
-         else if Array.Extra.member Key model.inventory then
+         else if hasItem Key model then
             { model
                 | inventory = Array.push Rock model.inventory
                 , narrationText = "You unlocked the chest and found a rock!"
@@ -377,6 +437,7 @@ roomView model =
       else
         drawClickableImage
             "/key.png"
+            "Pick up key"
             600
             350
             { model

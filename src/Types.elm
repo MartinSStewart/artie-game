@@ -19,6 +19,9 @@ type alias FrontendModel =
     , hasOpenedChest : Bool
     , hasPickedUpKey : Bool
     , selectedInventoryItem : Maybe Int
+    , hoverText : Maybe String
+    , windowWidth : Float
+    , windowHeight : Float
     }
 
 
@@ -43,6 +46,9 @@ type FrontendMsg
     | AnimationFrame Time.Posix
     | ClickedSomething FrontendModel
     | ClickedInventoryItem Int
+    | MouseEnteredClickableImage String
+    | MouseExitedClickableImage String
+    | GotWindowSize Float Float
 
 
 type ToBackend
