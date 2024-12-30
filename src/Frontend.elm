@@ -180,24 +180,9 @@ drawClickableImage imageName x y newModel =
         []
 
 
+itemSize : number
 itemSize =
     50
-
-
-itemData : Item -> { imagePath : String, name : String }
-itemData item =
-    case item of
-        Key ->
-            { imagePath = "/key.png", name = "a key" }
-
-        Letter ->
-            { imagePath = "/letter.png", name = "a letter" }
-
-        Rock ->
-            { imagePath = "/rock.png", name = "a rock" }
-
-        LetterWithRockInIt ->
-            { imagePath = "/letterWithARockInIt.png", name = "a letter with a rock in it" }
 
 
 drawGroup : Float -> Float -> List (Html msg) -> Html msg
@@ -281,34 +266,9 @@ drawRectangle color x y width height =
         []
 
 
-combineTwoItems : Int -> Item -> Int -> Item -> FrontendModel -> FrontendModel
-combineTwoItems itemIndex item previousItemIndex previousItem model =
-    let
-        hasSelectedItems : Item -> Item -> Bool
-        hasSelectedItems item1 item2 =
-            (item1 == item && item2 == previousItem) || (item2 == item && item1 == previousItem)
-
-        inventoryWithBothItemsRemoved : Array Item
-        inventoryWithBothItemsRemoved =
-            Array.Extra.removeAt
-                (min itemIndex previousItemIndex)
-                (Array.Extra.removeAt (max itemIndex previousItemIndex) model.inventory)
-    in
-    if hasSelectedItems Rock Letter then
-        { model
-            | narrationText = "You put the rock in the letter envelope."
-            , inventory = Array.push LetterWithRockInIt inventoryWithBothItemsRemoved
-        }
-
-    else
-        { model
-            | narrationText =
-                "You tried combining "
-                    ++ (itemData item).name
-                    ++ " and "
-                    ++ (itemData previousItem).name
-                    ++ " but nothing happened."
-        }
+drawNothing : Html msg
+drawNothing =
+    drawGroup 0 0 []
 
 
 view : FrontendModel -> Browser.Document FrontendMsg
@@ -324,40 +284,7 @@ view model =
             , Html.Attributes.style "height" "100vh"
             , Html.Events.on "click" (decodeMouseEvent MouseDown)
             ]
-            [ drawRectangle "gray" 0 420 2000 300
-            , drawImage "/mario.png" (model.playerX - 30) 300
-            , drawClickableImage
-                "/chest.png"
-                300
-                380
-                (if model.hasOpenedChest then
-                    { model | narrationText = "The chest has already been plundered." }
-
-                 else if Array.Extra.member Key model.inventory then
-                    { model
-                        | inventory = Array.push Rock model.inventory
-                        , narrationText = "You unlocked the chest and found a rock!"
-                        , hasOpenedChest = True
-                    }
-
-                 else
-                    { model
-                        | narrationText = "The chest is locked.\nYou need a key to open it!"
-                    }
-                )
-            , if model.hasPickedUpKey then
-                drawGroup 0 0 []
-
-              else
-                drawClickableImage
-                    "/key.png"
-                    600
-                    350
-                    { model
-                        | hasPickedUpKey = True
-                        , inventory = Array.push Key model.inventory
-                        , narrationText = "You picked up a key. What could it be for?"
-                    }
+            [ drawGroup 0 0 (roomView model)
             , drawInventory model
             , drawText "white" 20 20 500 model.narrationText
             ]
@@ -368,3 +295,93 @@ view model =
             )
         ]
     }
+
+
+
+-- Stuff you'll be working on is below this line
+
+
+itemData : Item -> { imagePath : String, name : String }
+itemData item =
+    case item of
+        Key ->
+            { imagePath = "/key.png", name = "a key" }
+
+        Letter ->
+            { imagePath = "/letter.png", name = "a letter" }
+
+        Rock ->
+            { imagePath = "/rock.png", name = "a rock" }
+
+        LetterWithRockInIt ->
+            { imagePath = "/letterWithARockInIt.png", name = "a letter with a rock in it" }
+
+
+combineTwoItems : Int -> Item -> Int -> Item -> FrontendModel -> FrontendModel
+combineTwoItems itemIndexInInventory item previousItemIndex previousItemInInventory model =
+    let
+        hasSelectedItems : Item -> Item -> Bool
+        hasSelectedItems item1 item2 =
+            (item1 == item && item2 == previousItemInInventory)
+                || (item2 == item && item1 == previousItemInInventory)
+
+        inventoryWithBothItemsRemoved : Array Item
+        inventoryWithBothItemsRemoved =
+            Array.Extra.removeAt
+                (min itemIndexInInventory previousItemIndex)
+                (Array.Extra.removeAt (max itemIndexInInventory previousItemIndex) model.inventory)
+    in
+    if hasSelectedItems Rock Letter then
+        { model
+            | narrationText = "You put the rock in the letter envelope."
+            , inventory = Array.push LetterWithRockInIt inventoryWithBothItemsRemoved
+        }
+
+    else
+        { model
+            | narrationText =
+                "You tried combining "
+                    ++ (itemData item).name
+                    ++ " and "
+                    ++ (itemData previousItemInInventory).name
+                    ++ " but nothing happened."
+        }
+
+
+roomView : FrontendModel -> List (Html FrontendMsg)
+roomView model =
+    [ drawRectangle "gray" 0 420 2000 300
+    , drawImage "/mario.png" (model.playerX - 30) 300
+    , drawClickableImage
+        "/chest.png"
+        300
+        380
+        (if model.hasOpenedChest then
+            { model | narrationText = "The chest has already been plundered." }
+
+         else if Array.Extra.member Key model.inventory then
+            { model
+                | inventory = Array.push Rock model.inventory
+                , narrationText = "You unlocked the chest and found a rock!"
+                , hasOpenedChest = True
+            }
+
+         else
+            { model
+                | narrationText = "The chest is locked.\nYou need a key to open it!"
+            }
+        )
+    , if model.hasPickedUpKey then
+        drawNothing
+
+      else
+        drawClickableImage
+            "/key.png"
+            600
+            350
+            { model
+                | hasPickedUpKey = True
+                , inventory = Array.push Key model.inventory
+                , narrationText = "You picked up a key. What could it be for?"
+            }
+    ]

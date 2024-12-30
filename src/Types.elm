@@ -3,7 +3,6 @@ module Types exposing (..)
 import Array exposing (Array)
 import Browser exposing (UrlRequest)
 import Browser.Navigation exposing (Key)
-import Html.Events.Extra.Pointer
 import Time
 import Url exposing (Url)
 
@@ -23,6 +22,8 @@ type alias FrontendModel =
     }
 
 
+{-| Items the player can have in their inventory
+-}
 type Item
     = Key
     | Letter
