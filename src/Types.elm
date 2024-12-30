@@ -18,6 +18,7 @@ type alias FrontendModel =
     , inventory : Array Item
     , narrationText : String
     , hasOpenedChest : Bool
+    , hasPickedUpKey : Bool
     , selectedInventoryItem : Maybe Int
     }
 
@@ -26,6 +27,7 @@ type Item
     = Key
     | Letter
     | Rock
+    | LetterWithRockInIt
 
 
 type alias BackendModel =

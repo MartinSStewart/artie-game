@@ -1,6 +1,7 @@
 module Frontend exposing (..)
 
 import Array exposing (Array)
+import Array.Extra
 import Browser exposing (UrlRequest(..))
 import Browser.Events
 import Browser.Navigation as Nav
@@ -29,8 +30,8 @@ app =
 subscriptions : FrontendModel -> Sub FrontendMsg
 subscriptions model =
     Sub.batch
-        [ Browser.Events.onMouseDown (decodeMouseEvent MouseDown)
-        , Browser.Events.onMouseMove (decodeMouseEvent MouseMove)
+        [ --Browser.Events.onMouseDown (decodeMouseEvent MouseDown)
+          Browser.Events.onMouseMove (decodeMouseEvent MouseMove)
         , Browser.Events.onAnimationFrame AnimationFrame
         ]
 
@@ -51,9 +52,10 @@ init url key =
       , mouseX = 0
       , mouseY = 0
       , time = Time.millisToPosix 0
-      , inventory = Array.fromList [ Key, Letter ]
+      , inventory = Array.fromList [ Letter ]
       , narrationText = ""
       , hasOpenedChest = False
+      , hasPickedUpKey = False
       , selectedInventoryItem = Nothing
       }
     , Cmd.none
@@ -98,7 +100,7 @@ update msg model =
         AnimationFrame newTime ->
             let
                 millisecondsElapsed =
-                    Time.posixToMillis newTime - Time.posixToMillis model.time |> toFloat
+                    toFloat (Time.posixToMillis newTime - Time.posixToMillis model.time)
             in
             ( { model
                 | time = newTime
@@ -194,6 +196,9 @@ itemData item =
         Rock ->
             { imagePath = "/rock.png", name = "a rock" }
 
+        LetterWithRockInIt ->
+            { imagePath = "/letterWithARockInIt.png", name = "a letter with a rock in it" }
+
 
 drawGroup : Float -> Float -> List (Html msg) -> Html msg
 drawGroup x y thingsToDraw =
@@ -205,26 +210,46 @@ drawGroup x y thingsToDraw =
         thingsToDraw
 
 
-drawInventory : Array Item -> Html msg
-drawInventory inventory =
+drawInventory : FrontendModel -> Html FrontendMsg
+drawInventory model =
     drawGroup
         50
         50
-        [ drawRectangle "#aaaa99" 0 20 (toFloat (Array.length inventory * itemSize)) itemSize
+        [ drawRectangle
+            "#aaaa99"
+            0
+            20
+            (toFloat (Array.length model.inventory * itemSize) + 4)
+            (itemSize + 4)
         , drawRectangle "#aaaa99" 0 0 90 20
         , drawText "black" 20 5 0 "Inventory"
-        , drawGroup 0
-            20
+        , drawGroup
+            2
+            22
             (List.indexedMap
                 (\index item ->
-                    drawGroup
-                        (toFloat index * itemSize)
-                        0
-                        [ drawRectangle "#ddddcc" 2 2 (itemSize - 4) (itemSize - 4)
-                        , drawImage (itemData item).imagePath 0 0
+                    Html.button
+                        [ Html.Attributes.style "top" "0px"
+                        , Html.Attributes.style "left" (String.fromFloat (toFloat index * itemSize) ++ "px")
+                        , Html.Attributes.style "position" "absolute"
+                        , Html.Attributes.style "margin" "0"
+                        , Html.Attributes.style "padding" "0"
+                        , Html.Attributes.style "border" "0"
+                        , Html.Attributes.style "width" (String.fromInt itemSize ++ "px")
+                        , Html.Attributes.style "height" (String.fromInt itemSize ++ "px")
+                        , if model.selectedInventoryItem == Just index then
+                            Html.Attributes.style "background-color" "pink"
+
+                          else
+                            Html.Attributes.style "" ""
+                        , Html.Events.stopPropagationOn
+                            "click"
+                            (Json.Decode.succeed ( ClickedInventoryItem index, True ))
+                        ]
+                        [ drawImage (itemData item).imagePath 0 0
                         ]
                 )
-                (Array.toList inventory)
+                (Array.toList model.inventory)
             )
         ]
 
@@ -237,6 +262,7 @@ drawText color fontSize x y text =
         , Html.Attributes.style "position" "absolute"
         , Html.Attributes.style "font-size" (String.fromFloat fontSize ++ "px")
         , Html.Attributes.style "font-family" "sans-serif"
+        , Html.Attributes.style "white-space" "pre"
         , Html.Attributes.style "color" color
         ]
         [ Html.text text ]
@@ -257,14 +283,32 @@ drawRectangle color x y width height =
 
 combineTwoItems : Int -> Item -> Int -> Item -> FrontendModel -> FrontendModel
 combineTwoItems itemIndex item previousItemIndex previousItem model =
-    { model
-        | narrationText =
-            "You tried combining "
-                ++ (itemData item).name
-                ++ " and "
-                ++ (itemData previousItem).name
-                ++ " but nothing happened."
-    }
+    let
+        hasSelectedItems : Item -> Item -> Bool
+        hasSelectedItems item1 item2 =
+            (item1 == item && item2 == previousItem) || (item2 == item && item1 == previousItem)
+
+        inventoryWithBothItemsRemoved : Array Item
+        inventoryWithBothItemsRemoved =
+            Array.Extra.removeAt
+                (min itemIndex previousItemIndex)
+                (Array.Extra.removeAt (max itemIndex previousItemIndex) model.inventory)
+    in
+    if hasSelectedItems Rock Letter then
+        { model
+            | narrationText = "You put the rock in the letter envelope."
+            , inventory = Array.push LetterWithRockInIt inventoryWithBothItemsRemoved
+        }
+
+    else
+        { model
+            | narrationText =
+                "You tried combining "
+                    ++ (itemData item).name
+                    ++ " and "
+                    ++ (itemData previousItem).name
+                    ++ " but nothing happened."
+        }
 
 
 view : FrontendModel -> Browser.Document FrontendMsg
@@ -278,6 +322,7 @@ view model =
             , Html.Attributes.style "left" "0"
             , Html.Attributes.style "width" "100vw"
             , Html.Attributes.style "height" "100vh"
+            , Html.Events.on "click" (decodeMouseEvent MouseDown)
             ]
             [ drawRectangle "gray" 0 420 2000 300
             , drawImage "/mario.png" (model.playerX - 30) 300
@@ -286,16 +331,34 @@ view model =
                 300
                 380
                 (if model.hasOpenedChest then
-                    { model | narrationText = "The chest has already been plundered" }
+                    { model | narrationText = "The chest has already been plundered." }
+
+                 else if Array.Extra.member Key model.inventory then
+                    { model
+                        | inventory = Array.push Rock model.inventory
+                        , narrationText = "You unlocked the chest and found a rock!"
+                        , hasOpenedChest = True
+                    }
 
                  else
                     { model
-                        | inventory = Array.push Rock model.inventory
-                        , narrationText = "You opened the chest and found a rock!"
-                        , hasOpenedChest = True
+                        | narrationText = "The chest is locked.\nYou need a key to open it!"
                     }
                 )
-            , drawInventory model.inventory
+            , if model.hasPickedUpKey then
+                drawGroup 0 0 []
+
+              else
+                drawClickableImage
+                    "/key.png"
+                    600
+                    350
+                    { model
+                        | hasPickedUpKey = True
+                        , inventory = Array.push Key model.inventory
+                        , narrationText = "You picked up a key. What could it be for?"
+                    }
+            , drawInventory model
             , drawText "white" 20 20 500 model.narrationText
             ]
         , Html.text
