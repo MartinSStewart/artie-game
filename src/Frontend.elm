@@ -1,5 +1,6 @@
 module Frontend exposing (..)
 
+import Array exposing (Array)
 import Browser exposing (UrlRequest(..))
 import Browser.Events
 import Browser.Navigation as Nav
@@ -8,7 +9,6 @@ import Html.Attributes
 import Html.Events
 import Json.Decode
 import Lamdera
-import List.Extra
 import Time
 import Types exposing (..)
 import Url
@@ -51,7 +51,7 @@ init url key =
       , mouseX = 0
       , mouseY = 0
       , time = Time.millisToPosix 0
-      , inventory = [ Key, Letter ]
+      , inventory = Array.fromList [ Key, Letter ]
       , narrationText = ""
       , hasOpenedChest = False
       , selectedInventoryItem = Nothing
@@ -119,17 +119,29 @@ update msg model =
         ClickedSomething newModel ->
             ( newModel, Cmd.none )
 
-        ClickedInventoryItem item ->
-            ( { model | selectedInventoryItem = Just item }
+        ClickedInventoryItem itemIndex ->
+            ( case model.selectedInventoryItem of
+                Just previousItemIndex ->
+                    if previousItemIndex == itemIndex then
+                        { model | selectedInventoryItem = Nothing }
+
+                    else
+                        case ( Array.get itemIndex model.inventory, Array.get previousItemIndex model.inventory ) of
+                            ( Just item, Just previousItem ) ->
+                                combineTwoItems
+                                    itemIndex
+                                    item
+                                    previousItemIndex
+                                    previousItem
+                                    { model | selectedInventoryItem = Nothing }
+
+                            _ ->
+                                { model | selectedInventoryItem = Nothing }
+
+                Nothing ->
+                    { model | selectedInventoryItem = Just itemIndex }
             , Cmd.none
             )
-
-
-type alias ClickableRegionData =
-    { x : Float
-    , y : Float
-    , image : String
-    }
 
 
 updateFromBackend : ToFrontend -> FrontendModel -> ( FrontendModel, Cmd FrontendMsg )
@@ -170,17 +182,17 @@ itemSize =
     50
 
 
-itemImage : Item -> String
-itemImage item =
+itemData : Item -> { imagePath : String, name : String }
+itemData item =
     case item of
         Key ->
-            "/key.png"
+            { imagePath = "/key.png", name = "a key" }
 
         Letter ->
-            "/letter.png"
+            { imagePath = "/letter.png", name = "a letter" }
 
         Rock ->
-            "/rock.png"
+            { imagePath = "/rock.png", name = "a rock" }
 
 
 drawGroup : Float -> Float -> List (Html msg) -> Html msg
@@ -193,12 +205,12 @@ drawGroup x y thingsToDraw =
         thingsToDraw
 
 
-drawInventory : List Item -> Html msg
+drawInventory : Array Item -> Html msg
 drawInventory inventory =
     drawGroup
         50
         50
-        [ drawRectangle "#aaaa99" 0 20 (toFloat (List.length inventory * itemSize)) itemSize
+        [ drawRectangle "#aaaa99" 0 20 (toFloat (Array.length inventory * itemSize)) itemSize
         , drawRectangle "#aaaa99" 0 0 90 20
         , drawText "black" 20 5 0 "Inventory"
         , drawGroup 0
@@ -209,10 +221,10 @@ drawInventory inventory =
                         (toFloat index * itemSize)
                         0
                         [ drawRectangle "#ddddcc" 2 2 (itemSize - 4) (itemSize - 4)
-                        , drawImage (itemImage item) 0 0
+                        , drawImage (itemData item).imagePath 0 0
                         ]
                 )
-                (List.reverse inventory)
+                (Array.toList inventory)
             )
         ]
 
@@ -243,6 +255,18 @@ drawRectangle color x y width height =
         []
 
 
+combineTwoItems : Int -> Item -> Int -> Item -> FrontendModel -> FrontendModel
+combineTwoItems itemIndex item previousItemIndex previousItem model =
+    { model
+        | narrationText =
+            "You tried combining "
+                ++ (itemData item).name
+                ++ " and "
+                ++ (itemData previousItem).name
+                ++ " but nothing happened."
+    }
+
+
 view : FrontendModel -> Browser.Document FrontendMsg
 view model =
     { title = ""
@@ -266,7 +290,7 @@ view model =
 
                  else
                     { model
-                        | inventory = Rock :: model.inventory
+                        | inventory = Array.push Rock model.inventory
                         , narrationText = "You opened the chest and found a rock!"
                         , hasOpenedChest = True
                     }

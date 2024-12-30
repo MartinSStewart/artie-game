@@ -1,5 +1,6 @@
 module Types exposing (..)
 
+import Array exposing (Array)
 import Browser exposing (UrlRequest)
 import Browser.Navigation exposing (Key)
 import Html.Events.Extra.Pointer
@@ -14,10 +15,10 @@ type alias FrontendModel =
     , mouseX : Float
     , mouseY : Float
     , time : Time.Posix
-    , inventory : List Item
+    , inventory : Array Item
     , narrationText : String
     , hasOpenedChest : Bool
-    , selectedInventoryItem : Maybe Item
+    , selectedInventoryItem : Maybe Int
     }
 
 
@@ -38,7 +39,7 @@ type FrontendMsg
     | MouseMove { mouseX : Float, mouseY : Float }
     | AnimationFrame Time.Posix
     | ClickedSomething FrontendModel
-    | ClickedInventoryItem Item
+    | ClickedInventoryItem Int
 
 
 type ToBackend
